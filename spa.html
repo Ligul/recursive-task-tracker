@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Recursive Task Tracker</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				padding: 20px;
+			}
+
+			.task {
+				margin: 10px 0;
+				padding: 10px;
+				background-color: #f5f5f5;
+				border-radius: 5px;
+				box-shadow: 2px 2px 5px #aaa;
+			}
+
+			.task.completed {
+				background-color: #d0e0d0;
+			}
+
+			.task.failed {
+				background-color: #e0d0d0;
+			}
+
+			.task input[type="checkbox"] {
+				margin-right: 10px;
+			}
+
+			.task span {
+				margin-right: 10px;
+			}
+
+			.task b {
+				margin-right: 10px;
+			}
+
+			.left-side-button {
+				margin-left: 2px;
+				margin-right: 2px;
+			}
+
+			.right-side-button {
+				float: right;
+				margin-left: 2px;
+				margin-right: 2px;
+			}
+
+			footer {
+				position:fixed;
+				bottom:0;
+				left:0;
+				padding: 5px;
+			}
+
+
+		</style>
+	</head>
+	<body>
+		<h1 id="title">Recursive Task Tracker</h1>
+
+		<div id="tasks"></div>
+
+		<button id="add-task">Add Task</button>
+
+		<footer>
+			<button id="export">Export</button>
+			<button id="import">Import</button>
+			<button id="clear">!!!Clear Local Storage!!!</button>
+		</footer>
+
+		<script>
+let tasks = [];
+loadTasks();
+
+
+function renderTasks() {
+    let tasksElement = document.getElementById("tasks");
+    tasksElement.innerHTML = "";
+    for (let i = 0; i < tasks.length; i++) {
+        renderTask(tasksElement, tasks[i], tasks);
+    }
+    saveTasks();
+}
+document.getElementById("add-task").addEventListener("click", function() {
+    let newTaskTitle = prompt("Enter task title:");
+    if (newTaskTitle !== null) {
+        tasks.push({
+            title: newTaskTitle,
+            completed: false,
+			failed: false,
+			collapsed: false,
+            tasks: []
+        });
+        renderTasks();
+    }
+});
+document.getElementById("export").addEventListener("click", function() {
+	let exportName = prompt("Enter export name:");
+	var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+	var downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", exportName + ".json");
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+});
+document.getElementById("clear").addEventListener("click", function() {
+	let confirmation = confirm("Are you sure you want to clear local storage?");
+	if (confirmation) {
+		localStorage.clear();
+		tasks = [];
+		renderTasks();
+		console.log("Local storage cleared");
+	}
+});
+document.getElementById("import").addEventListener("click", function() {
+	// show file selector
+	let fileSelector = document.createElement("input");
+	fileSelector.type = "file";
+	fileSelector.click();
+	fileSelector.addEventListener("change", function() {
+		// read file
+		let file = fileSelector.files[0];
+		let reader = new FileReader();
+		reader.readAsText(file);
+		reader.addEventListener("load", function() {
+			// parse file
+			let importedTasks = JSON.parse(reader.result);
+			// add tasks to current tasks
+			tasks = tasks.concat(importedTasks);
+			// render tasks
+			renderTasks();
+		});
+	});
+});
+
+
+
+function renderTask(tasksElement, task, parent) {
+    let taskElement = document.createElement("div");
+    taskElement.className = "task" + (task.completed ? " completed" : "") + (task.failed ? " failed" : "");
+    let checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.completed;
+    checkbox.addEventListener("change", function() {
+        task.completed = checkbox.checked;
+		task.failed = false;
+        renderTasks();
+    });
+    let title = document.createElement("span");
+    title.textContent = task.title;
+    let editButton = document.createElement("button");
+	editButton.className = "left-side-button";
+    editButton.textContent = "Edit";
+    editButton.addEventListener("click", function() {
+        let newTitle = prompt("Enter new title:", task.title);
+        if (newTitle !== null) {
+            task.title = newTitle;
+            renderTasks();
+        }
+    });
+    let deleteButton = document.createElement("button");
+	deleteButton.className = "left-side-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", function() {
+    	let confirmation = confirm("Are you sure you want to delete this task?");
+    	if (confirmation)
+    	{
+			parent.splice(parent.indexOf(task), 1);
+			renderTasks();
+			console.log("Task deleted");
+        }
+    });
+    let addSubtaskButton = document.createElement("button");
+	addSubtaskButton.className = "left-side-button";
+    addSubtaskButton.textContent = "Add Subtask";
+    addSubtaskButton.addEventListener("click", function() {
+        let newSubtaskTitle = prompt("Enter subtask title:");
+        if (newSubtaskTitle !== null) {
+            task.tasks.push({
+                title: newSubtaskTitle,
+                completed: false,
+				failed: false,
+				collapsed: false,
+                tasks: []
+            });
+            renderTasks();
+        }
+    });
+	let markFailedButton = document.createElement("button");
+	markFailedButton.className = "left-side-button";
+	markFailedButton.textContent = "Mark Failed";
+	markFailedButton.addEventListener("click", function() {
+		task.failed = true;
+		task.completed = false;
+		renderTasks();
+	});
+	let reorderUpButton = document.createElement("button");
+	reorderUpButton.className = "right-side-button";
+	reorderUpButton.textContent = "↑";
+	reorderUpButton.addEventListener("click", function() {
+		let index = parent.indexOf(task);
+		if (index > 0) {
+			let temp = parent[index - 1];
+			parent[index - 1] = task;
+			parent[index] = temp;
+			renderTasks();
+		}
+	});
+	let reorderDownButton = document.createElement("button");
+	reorderDownButton.className = "right-side-button";
+	reorderDownButton.textContent = "↓";
+	reorderDownButton.addEventListener("click", function() {
+		let index = parent.indexOf(task);
+		if (index < parent.length - 1) {
+			let temp = parent[index + 1];
+			parent[index + 1] = task;
+			parent[index] = temp;
+			renderTasks();
+		}
+	});
+	let toggleSubtasksButton = document.createElement("button");
+	toggleSubtasksButton.className = "right-side-button";
+	toggleSubtasksButton.textContent = task.collapsed ? "▶" : "▼";
+	toggleSubtasksButton.addEventListener("click", function() {
+		if (task.collapsed) {
+			task.collapsed = false;
+			toggleSubtasksButton.textContent = "▼";
+		} else {
+			task.collapsed = true;
+			toggleSubtasksButton.textContent = "▶";
+		}
+		renderTasks();
+	});
+
+    taskElement.appendChild(checkbox);
+	if (task.collapsed) {
+		let subtasksCountElement = document.createElement("b");
+		subtasksCountElement.textContent = "[" + task.tasks.length + "]"
+		taskElement.appendChild(subtasksCountElement);
+	}
+    taskElement.appendChild(title);
+    taskElement.appendChild(editButton);
+    taskElement.appendChild(addSubtaskButton);
+	taskElement.appendChild(markFailedButton);
+    taskElement.appendChild(deleteButton);
+	taskElement.appendChild(toggleSubtasksButton);
+	taskElement.appendChild(reorderUpButton);
+	taskElement.appendChild(reorderDownButton);
+    tasksElement.appendChild(taskElement);
+	if (!task.collapsed) {
+		for (let i = 0; i < task.tasks.length; i++) {
+			renderTask(taskElement, task.tasks[i], task.tasks);
+		}
+	}
+}
+
+function loadTasks() {
+    let savedTasks = localStorage.getItem("tasks");
+    if (savedTasks !== null) {
+        tasks = JSON.parse(savedTasks);
+        console.log("Loaded tasks: " + savedTasks);
+    }
+}
+function saveTasks() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    console.log("Tasks saved to local storage");
+}
+function addEmojiToTitle() {
+	let title = document.getElementById("title");
+	let emoji = ["🔄", "🔃", "🔁", "📋", "📝", "🗒️", "🔍", "🔎", "📈", "👀", "🗂️", "📊"];
+	emoji = emoji[Math.floor(Math.random() * emoji.length)];
+	title.textContent = title.textContent + " " + emoji;
+}
+addEmojiToTitle();
+renderTasks();
+		</script>
+	</body>
+</html>
