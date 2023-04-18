@@ -128,8 +128,8 @@ document.getElementById("import").addEventListener("click", function() {
 		reader.addEventListener("load", function() {
 			// parse file
 			let importedTasks = JSON.parse(reader.result);
-			// add tasks to current tasks
-			tasks = tasks.concat(importedTasks);
+			// replace tasks with imported tasks
+			tasks = importedTasks;
 			// render tasks
 			renderTasks();
 		});
