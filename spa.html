@@ -1,303 +1,440 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Recursive Task Tracker</title>
-    <meta name="viewport" content="width=device-width" />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-      }
+    <head>
+        <title>Recursive Task Tracker</title>
+        <meta name="viewport" content="width=device-width" />
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+            }
 
-      .task {
-        margin: 10px 0;
-        padding: 10px;
-        background-color: #f5f5f5;
-        border-radius: 5px;
-        box-shadow: 2px 2px 5px #aaa;
-      }
+            .task {
+                margin: 10px 0;
+                padding: 10px;
+                background-color: #f5f5f5;
+                border-radius: 5px;
+                box-shadow: 2px 2px 5px #aaa;
 
-      .task.completed {
-        background-color: #d0e0d0;
-      }
+                /* padding-right: 0;
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0; */
+            }
 
-      .task.failed {
-        background-color: #e0d0d0;
-      }
+            .task.completed {
+                background-color: #d0e0d0;
+            }
 
-      .task input[type="checkbox"] {
-        margin-right: 10px;
-      }
+            .task.failed {
+                background-color: #e0d0d0;
+            }
 
-      .task span {
-        margin-right: 10px;
-      }
+            .task input[type="checkbox"] {
+                margin-right: 10px;
+            }
 
-      .task b {
-        margin-right: 10px;
-      }
+            .task span {
+                margin-right: 10px;
+            }
 
-      .left-side-button {
-        margin-left: 2px;
-        margin-right: 2px;
-      }
+            .task b {
+                margin-right: 10px;
+            }
 
-      .right-side-button {
-        float: right;
-        margin-left: 2px;
-        margin-right: 2px;
-      }
+            .left-side-button {
+                margin-left: 2px;
+                margin-right: 2px;
+                background: none;
+                border: none;
+                padding: 0;
+                font: inherit;
+                cursor: pointer;
+                outline: inherit;
+            }
 
-      footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        padding: 5px;
-      }
-    </style>
-  </head>
-  <body>
-    <h1 id="title">Recursive Task Tracker</h1>
+            .right-side-button {
+                float: right;
+                margin-left: 2px;
+                margin-right: 2px;
+            }
 
-    <div id="tasks"></div>
+            footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                padding: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1 id="title">Recursive Task Tracker</h1>
 
-    <button id="add-task">Add Task</button>
+        <div id="tasks"></div>
 
-    <footer>
-      <button id="export" onclick="exportTasks()">Export</button>
-      <button id="import" onclick="importTasks()">Import</button>
-      <button id="clear" onclick="clearLocalStorage()">
-        !!!Clear Local Storage!!!
-      </button>
-    </footer>
+        <button id="add-task" onclick="addTask.bind(null, tasks[0])()">
+            Add Task
+        </button>
 
-    <script>
-      let tasks = [];
-      loadTasks();
+        <footer>
+            <button id="export" onclick="exportTasks()">Export</button>
+            <button id="import" onclick="importTasks()">Import</button>
+            <button id="clear" onclick="clearLocalStorage()">
+                !!!Clear Local Storage!!!
+            </button>
+            <a
+                href="https://github.com/Ligul/recursive-task-tracker"
+                target="_blank"
+                >Project Repository</a
+            >
+        </footer>
 
-      function renderTasks() {
-        let tasksElement = document.getElementById("tasks");
-        tasksElement.innerHTML = "";
-        for (let i = 0; i < tasks.length; i++) {
-          renderTask(tasksElement, tasks[i], tasks);
-        }
-        saveTasks();
-      }
-      document
-        .getElementById("add-task")
-        .addEventListener("click", function () {
-          let newTaskTitle = prompt("Enter task title:");
-          if (newTaskTitle !== null) {
-            tasks.push({
-              title: newTaskTitle,
-              completed: false,
-              failed: false,
-              collapsed: false,
-              tasks: [],
-            });
+        <script>
+            class Task {
+                id;
+                createdDate;
+                completedDate = null;
+                title;
+                text = null;
+                state = "active";
+                collapsed = false;
+                dueDate = null;
+                tasks = []; // array of child tasks ids
+
+                constructor(title) {
+                    this.id = Task.generateId();
+                    this.createdDate = new Date();
+                    this.title = title;
+                }
+
+                static generateId() {
+                    const timestamp = Date.now().toString(16);
+                    const randomPart = Math.random().toString(16).slice(2, 10);
+                    return `${timestamp}-${randomPart}`;
+                }
+
+                setState(state) {
+                    this.state = state;
+                    if (state === "completed") {
+                        this.completedDate = new Date();
+                    } else {
+                        this.completedDate = null;
+                    }
+                }
+
+                static reviver(key, value) {
+                    if (
+                        typeof value === "object" &&
+                        value !== null &&
+                        "title" in value
+                    ) {
+                        let taskObj = new Task(value.title);
+                        for (let prop in value) {
+                            taskObj[prop] = value[prop];
+                        }
+                        return taskObj;
+                    }
+                    return value;
+                }
+            }
+            // array of all tasks
+            let tasks = [];
+            // create tasks[0] witch is the root task - parent of all tasks. It is not displayed.
+            initTasks();
+            // load tasks from local storage
+            loadTasks();
+
+            function renderTasks() {
+                let tasksElement = document.getElementById("tasks");
+                tasksElement.innerHTML = "";
+                for (let i = 0; i < tasks[0].tasks.length; i++) {
+                    testType = tasks.find(
+                        (taskToRender) => taskToRender.id === tasks[0].tasks[i]
+                    );
+                    renderTask(
+                        tasksElement,
+                        tasks.find(
+                            (taskToRender) =>
+                                taskToRender.id === tasks[0].tasks[i]
+                        ),
+                        tasks[0]
+                    );
+                }
+                saveTasks();
+            }
+            function addTask(parentTask, userPrompt) {
+                let newTaskTitle = prompt(userPrompt);
+                if (newTaskTitle !== null) {
+                    newTask = new Task(newTaskTitle);
+                    tasks.push(newTask);
+                    parentTask.tasks.push(newTask.id);
+                    renderTasks();
+                }
+            }
+            function deleteTask(parent, task) {
+                if (!confirm("Are you sure you want to delete this task?")) {
+                    return;
+                }
+                parent.tasks.splice(parent.tasks.indexOf(task.id), 1);
+                renderTasks();
+            }
+            function createButton(text, className, onclick) {
+                let button = document.createElement("button");
+                button.textContent = text;
+                button.className = className;
+                button.addEventListener("click", onclick);
+                return button;
+            }
+            function reorderTask(parentTask, taskId, direction) {
+                direction = direction === "up" ? -1 : 1;
+                let index = parentTask.tasks.indexOf(taskId);
+                if (
+                    index + direction >= 0 &&
+                    index + direction < parentTask.tasks.length
+                ) {
+                    let temp = parentTask.tasks[index + direction];
+                    parentTask.tasks[index + direction] = taskId;
+                    parentTask.tasks[index] = temp;
+                    renderTasks();
+                }
+            }
+            function renderTask(tasksElement, task, parent) {
+                // create task body
+                let taskElement = document.createElement("div");
+                taskElement.id = task.id;
+                taskElement.className =
+                    task.state === "active" ? "task" : "task " + task.state;
+                // create controls
+                let checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = task.state === "completed";
+                checkbox.addEventListener("change", function () {
+                    task.setState(
+                        checkbox.checked ? "completed" : "active",
+                        new Date()
+                    );
+                    renderTasks();
+                });
+                let title = document.createElement("span");
+                title.textContent = task.title;
+                let editButton = createButton(
+                    "📝",
+                    "left-side-button",
+                    function () {
+                        let newTitle = prompt("Enter new title:", task.title);
+                        if (newTitle !== null) {
+                            task.title = newTitle;
+                            renderTasks();
+                        }
+                    }
+                );
+                let deleteButton = createButton(
+                    "🗑",
+                    "left-side-button",
+                    deleteTask.bind(null, parent, task)
+                );
+                let addSubtaskButton = createButton(
+                    "➕",
+                    "left-side-button",
+                    addTask.bind(null, task, "Enter subtask title:")
+                );
+                let markFailedButton = createButton(
+                    "❌",
+                    "left-side-button",
+                    function () {
+                        task.setState("failed");
+                        renderTasks();
+                    }
+                );
+                let copyIDButton = createButton(
+                    "🆔",
+                    "left-side-button",
+                    function () {
+                        navigator.clipboard.writeText(task.id);
+                    }
+                );
+                let pasteeIDAsSubtaskButton = createButton(
+                    "📋",
+                    "left-side-button",
+                    function () {
+                        // read clipboard
+                        navigator.clipboard
+                            .readText()
+                            .then(function (clipboardText) {
+                                console.log(clipboardText);
+                                console.log(task.title);
+                                // find task with id from clipboard
+                                task.tasks.push(clipboardText);
+                                renderTasks();
+                            });
+                    }
+                );
+                let reorderUpButton = createButton(
+                    "↑",
+                    "right-side-button",
+                    reorderTask.bind(null, parent, task.id, "up")
+                );
+                let reorderDownButton = createButton(
+                    "↓",
+                    "right-side-button",
+                    reorderTask.bind(null, parent, task.id, "down")
+                );
+                let toggleSubtasksButton = createButton(
+                    task.collapsed ? "▶" : "▼",
+                    "right-side-button",
+                    function () {
+                        if (task.collapsed) {
+                            task.collapsed = false;
+                            toggleSubtasksButton.textContent = "▼";
+                        } else {
+                            task.collapsed = true;
+                            toggleSubtasksButton.textContent = "▶";
+                        }
+                        renderTasks();
+                    }
+                );
+                // append controls to task body
+                taskElement.appendChild(checkbox);
+                if (task.collapsed) {
+                    let subtasksCountElement = document.createElement("b");
+                    subtasksCountElement.textContent = `[${task.tasks.length}]`;
+                    taskElement.appendChild(subtasksCountElement);
+                }
+                taskElement.appendChild(title);
+                taskElement.appendChild(editButton);
+                taskElement.appendChild(addSubtaskButton);
+                taskElement.appendChild(markFailedButton);
+                taskElement.appendChild(deleteButton);
+                taskElement.appendChild(copyIDButton);
+                taskElement.appendChild(pasteeIDAsSubtaskButton);
+                taskElement.appendChild(toggleSubtasksButton);
+                taskElement.appendChild(reorderUpButton);
+                taskElement.appendChild(reorderDownButton);
+                tasksElement.appendChild(taskElement);
+                // render subtasks
+                if (!task.collapsed) {
+                    for (let i = 0; i < task.tasks.length; i++) {
+                        renderTask(
+                            taskElement,
+                            tasks.find(
+                                (childTask) => childTask.id === task.tasks[i]
+                            ),
+                            task
+                        );
+                    }
+                }
+            }
+            function removeUnconnectedTasks() {
+                let connectedTasks = [tasks[0]];
+                function addConnectedTasks(task) {
+                    for (let i = 0; i < task.tasks.length; i++) {
+                        let childTask = tasks.find(
+                            (childTask) => childTask.id === task.tasks[i]
+                        );
+                        connectedTasks.push(childTask);
+                        addConnectedTasks(childTask);
+                    }
+                }
+                addConnectedTasks(tasks[0]);
+                tasks = tasks.filter((task) => connectedTasks.includes(task));
+            }
+            /**
+             * Initialize tasks array with root task
+             */
+            function initTasks() {
+                tasks = [new Task("Root Task")];
+            }
+            /**
+             * Load tasks from local storage id it exists or create new tasks array
+             */
+            function loadTasks() {
+                let savedTasks = localStorage.getItem("tasks");
+                if (savedTasks !== null && savedTasks !== undefined) {
+                    savedTasks = JSON.parse(savedTasks, Task.reviver);
+                    if (savedTasks.length > 0) {
+                        tasks = savedTasks;
+                    }
+                }
+            }
+            /**
+             * Save tasks to local storage
+             */
+            function saveTasks() {
+                removeUnconnectedTasks();
+                localStorage.setItem("tasks", JSON.stringify(tasks));
+            }
+
+            function importTasks() {
+                // show file selector
+                let fileSelector = document.createElement("input");
+                fileSelector.type = "file";
+                fileSelector.click();
+                fileSelector.addEventListener("change", function () {
+                    // read file
+                    let file = fileSelector.files[0];
+                    let reader = new FileReader();
+                    reader.readAsText(file);
+                    reader.addEventListener("load", function () {
+                        // parse file
+                        let importedTasks = JSON.parse(
+                            reader.result,
+                            Task.reviver
+                        );
+                        // replace tasks with imported tasks
+                        tasks = importedTasks;
+                        // render tasks
+                        renderTasks();
+                    });
+                });
+            }
+            function exportTasks() {
+                let exportName = prompt("Enter export name:");
+                var dataStr =
+                    "data:text/json;charset=utf-8," +
+                    encodeURIComponent(JSON.stringify(tasks));
+                var downloadAnchorNode = document.createElement("a");
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute(
+                    "download",
+                    exportName + ".json"
+                );
+                document.body.appendChild(downloadAnchorNode); // required for firefox
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+            function clearLocalStorage() {
+                let confirmation = confirm(
+                    "Are you sure you want to clear local storage?"
+                );
+                if (confirmation) {
+                    localStorage.clear();
+                    // TODO: maybe it is better to reload the page?
+                    initTasks();
+                    renderTasks();
+                    console.log("Local storage cleared");
+                }
+            }
+            function addEmojiToTitle() {
+                let title = document.getElementById("title");
+                let emoji = [
+                    "🔄",
+                    "🔃",
+                    "🔁",
+                    "📋",
+                    "📝",
+                    "🗒️",
+                    "🔍",
+                    "🔎",
+                    "📈",
+                    "👀",
+                    "🗂️",
+                    "📊",
+                ];
+                emoji = emoji[Math.floor(Math.random() * emoji.length)];
+                title.textContent = title.textContent + " " + emoji;
+            }
+
+            addEmojiToTitle();
             renderTasks();
-          }
-        });
-
-      function renderTask(tasksElement, task, parent) {
-        let taskElement = document.createElement("div");
-        taskElement.className =
-          "task" +
-          (task.completed ? " completed" : "") +
-          (task.failed ? " failed" : "");
-        let checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = task.completed;
-        checkbox.addEventListener("change", function () {
-          task.completed = checkbox.checked;
-          task.failed = false;
-          renderTasks();
-        });
-        let title = document.createElement("span");
-        title.textContent = task.title;
-        let editButton = document.createElement("button");
-        editButton.className = "left-side-button";
-        editButton.textContent = "Edit";
-        editButton.addEventListener("click", function () {
-          let newTitle = prompt("Enter new title:", task.title);
-          if (newTitle !== null) {
-            task.title = newTitle;
-            renderTasks();
-          }
-        });
-        let deleteButton = document.createElement("button");
-        deleteButton.className = "left-side-button";
-        deleteButton.textContent = "Delete";
-        deleteButton.addEventListener("click", function () {
-          let confirmation = confirm(
-            "Are you sure you want to delete this task?"
-          );
-          if (confirmation) {
-            parent.splice(parent.indexOf(task), 1);
-            renderTasks();
-            console.log("Task deleted");
-          }
-        });
-        let addSubtaskButton = document.createElement("button");
-        addSubtaskButton.className = "left-side-button";
-        addSubtaskButton.textContent = "Add Subtask";
-        addSubtaskButton.addEventListener("click", function () {
-          let newSubtaskTitle = prompt("Enter subtask title:");
-          if (newSubtaskTitle !== null) {
-            task.tasks.push({
-              title: newSubtaskTitle,
-              completed: false,
-              failed: false,
-              collapsed: false,
-              tasks: [],
-            });
-            renderTasks();
-          }
-        });
-        let markFailedButton = document.createElement("button");
-        markFailedButton.className = "left-side-button";
-        markFailedButton.textContent = "Mark Failed";
-        markFailedButton.addEventListener("click", function () {
-          task.failed = true;
-          task.completed = false;
-          renderTasks();
-        });
-        let reorderUpButton = document.createElement("button");
-        reorderUpButton.className = "right-side-button";
-        reorderUpButton.textContent = "↑";
-        reorderUpButton.addEventListener("click", function () {
-          let index = parent.indexOf(task);
-          if (index > 0) {
-            let temp = parent[index - 1];
-            parent[index - 1] = task;
-            parent[index] = temp;
-            renderTasks();
-          }
-        });
-        let reorderDownButton = document.createElement("button");
-        reorderDownButton.className = "right-side-button";
-        reorderDownButton.textContent = "↓";
-        reorderDownButton.addEventListener("click", function () {
-          let index = parent.indexOf(task);
-          if (index < parent.length - 1) {
-            let temp = parent[index + 1];
-            parent[index + 1] = task;
-            parent[index] = temp;
-            renderTasks();
-          }
-        });
-        let toggleSubtasksButton = document.createElement("button");
-        toggleSubtasksButton.className = "right-side-button";
-        toggleSubtasksButton.textContent = task.collapsed ? "▶" : "▼";
-        toggleSubtasksButton.addEventListener("click", function () {
-          if (task.collapsed) {
-            task.collapsed = false;
-            toggleSubtasksButton.textContent = "▼";
-          } else {
-            task.collapsed = true;
-            toggleSubtasksButton.textContent = "▶";
-          }
-          renderTasks();
-        });
-
-        taskElement.appendChild(checkbox);
-        if (task.collapsed) {
-          let subtasksCountElement = document.createElement("b");
-          subtasksCountElement.textContent = "[" + task.tasks.length + "]";
-          taskElement.appendChild(subtasksCountElement);
-        }
-        taskElement.appendChild(title);
-        taskElement.appendChild(editButton);
-        taskElement.appendChild(addSubtaskButton);
-        taskElement.appendChild(markFailedButton);
-        taskElement.appendChild(deleteButton);
-        taskElement.appendChild(toggleSubtasksButton);
-        taskElement.appendChild(reorderUpButton);
-        taskElement.appendChild(reorderDownButton);
-        tasksElement.appendChild(taskElement);
-        if (!task.collapsed) {
-          for (let i = 0; i < task.tasks.length; i++) {
-            renderTask(taskElement, task.tasks[i], task.tasks);
-          }
-        }
-      }
-
-      function loadTasks() {
-        let savedTasks = localStorage.getItem("tasks");
-        if (savedTasks !== null) {
-          tasks = JSON.parse(savedTasks);
-          console.log("Loaded tasks: " + savedTasks);
-        }
-      }
-      function saveTasks() {
-        localStorage.setItem("tasks", JSON.stringify(tasks));
-        console.log("Tasks saved to local storage");
-      }
-      function importTasks() {
-        // show file selector
-        let fileSelector = document.createElement("input");
-        fileSelector.type = "file";
-        fileSelector.click();
-        fileSelector.addEventListener("change", function () {
-          // read file
-          let file = fileSelector.files[0];
-          let reader = new FileReader();
-          reader.readAsText(file);
-          reader.addEventListener("load", function () {
-            // parse file
-            let importedTasks = JSON.parse(reader.result);
-            // replace tasks with imported tasks
-            tasks = importedTasks;
-            // render tasks
-            renderTasks();
-          });
-        });
-      }
-      function exportTasks() {
-        let exportName = prompt("Enter export name:");
-        var dataStr =
-          "data:text/json;charset=utf-8," +
-          encodeURIComponent(JSON.stringify(tasks));
-        var downloadAnchorNode = document.createElement("a");
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", exportName + ".json");
-        document.body.appendChild(downloadAnchorNode); // required for firefox
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-      }
-      function clearLocalStorage() {
-        let confirmation = confirm(
-          "Are you sure you want to clear local storage?"
-        );
-        if (confirmation) {
-          localStorage.clear();
-          tasks = [];
-          renderTasks();
-          console.log("Local storage cleared");
-        }
-      }
-      function addEmojiToTitle() {
-        let title = document.getElementById("title");
-        let emoji = [
-          "🔄",
-          "🔃",
-          "🔁",
-          "📋",
-          "📝",
-          "🗒️",
-          "🔍",
-          "🔎",
-          "📈",
-          "👀",
-          "🗂️",
-          "📊",
-        ];
-        emoji = emoji[Math.floor(Math.random() * emoji.length)];
-        title.textContent = title.textContent + " " + emoji;
-      }
-
-      addEmojiToTitle();
-      renderTasks();
-    </script>
-  </body>
+        </script>
+    </body>
 </html>
