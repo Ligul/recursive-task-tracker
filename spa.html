@@ -29,6 +29,23 @@
                 background-color: #e0d0d0;
             }
 
+            .task-x-drag-over-correct {
+                outline: 2px solid green;
+                box-shadow: 0 0 10px green;
+                transition: box-shadow 0.1s ease-in-out;
+            }
+
+            .task-x-drag-over-wrong {
+                outline: 2px solid red;
+                box-shadow: 0 0 10px red;
+                transition: box-shadow 0.1s ease-in-out;
+            }
+
+            .animate-out {
+                transition: box-shadow 0.1s ease-in-out;
+                box-shadow: none !important;
+            }
+
             .task input[type="checkbox"] {
                 margin-right: 10px;
             }
@@ -49,7 +66,6 @@
                 padding: 0;
                 font: inherit;
                 cursor: pointer;
-                outline: inherit;
             }
 
             .right-side-button {
@@ -73,6 +89,12 @@
 
         <button id="add-task" onclick="addTask.bind(null, tasks[0])()">
             Add Task
+        </button>
+        <button
+            id="paste-id-as-subtask"
+            onclick="pasteIDAsSubtask.bind(null, tasks[0])()"
+        >
+            Paste ID
         </button>
 
         <footer>
@@ -121,6 +143,25 @@
                     }
                 }
 
+                checkParentLoop(parentTaskId, alreadyCheckedTasks = []) {
+                    if (alreadyCheckedTasks.includes(this.id)) {
+                        return true;
+                    }
+                    alreadyCheckedTasks.push(this.id);
+                    if (this.id === parentTaskId) {
+                        return true;
+                    }
+                    for (let i = 0; i < this.tasks.length; i++) {
+                        let childTask = tasks.find(
+                            (childTask) => childTask.id === this.tasks[i]
+                        );
+                        if (childTask.checkParentLoop(parentTaskId)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
                 static reviver(key, value) {
                     if (
                         typeof value === "object" &&
@@ -136,6 +177,7 @@
                     return value;
                 }
             }
+
             // array of all tasks
             let tasks = [];
             // create tasks[0] witch is the root task - parent of all tasks. It is not displayed.
@@ -156,7 +198,8 @@
                             (taskToRender) =>
                                 taskToRender.id === tasks[0].tasks[i]
                         ),
-                        tasks[0]
+                        tasks[0],
+                        i
                     );
                 }
                 saveTasks();
@@ -170,11 +213,11 @@
                     renderTasks();
                 }
             }
-            function deleteTask(parent, task) {
+            function deleteTask(parent, index) {
                 if (!confirm("Are you sure you want to delete this task?")) {
                     return;
                 }
-                parent.tasks.splice(parent.tasks.indexOf(task.id), 1);
+                parent.tasks.splice(index, 1);
                 renderTasks();
             }
             function createButton(text, className, onclick) {
@@ -184,9 +227,8 @@
                 button.addEventListener("click", onclick);
                 return button;
             }
-            function reorderTask(parentTask, taskId, direction) {
+            function reorderTask(parentTask, taskId, direction, index) {
                 direction = direction === "up" ? -1 : 1;
-                let index = parentTask.tasks.indexOf(taskId);
                 if (
                     index + direction >= 0 &&
                     index + direction < parentTask.tasks.length
@@ -197,10 +239,24 @@
                     renderTasks();
                 }
             }
-            function renderTask(tasksElement, task, parent) {
+            function pasteIDAsSubtask(parentTask) {
+                // read clipboard
+                navigator.clipboard.readText().then(function (clipboardText) {
+                    // find task with id from clipboard
+                    let taskToPaste = tasks.find(
+                        (task) => task.id === clipboardText
+                    );
+                    if (taskToPaste !== undefined) {
+                        // add task to parent
+                        parentTask.tasks.push(taskToPaste.id);
+                        renderTasks();
+                    }
+                });
+            }
+            function renderTask(tasksElement, task, parent, index) {
                 // create task body
                 let taskElement = document.createElement("div");
-                taskElement.id = task.id;
+                taskElement.id = `task_${task.id}_${index}`;
                 taskElement.className =
                     task.state === "active" ? "task" : "task " + task.state;
                 // create controls
@@ -230,7 +286,7 @@
                 let deleteButton = createButton(
                     "🗑",
                     "left-side-button",
-                    deleteTask.bind(null, parent, task)
+                    deleteTask.bind(null, parent, index)
                 );
                 let addSubtaskButton = createButton(
                     "➕",
@@ -252,31 +308,20 @@
                         navigator.clipboard.writeText(task.id);
                     }
                 );
-                let pasteeIDAsSubtaskButton = createButton(
+                let pasteIDAsSubtaskButton = createButton(
                     "📋",
                     "left-side-button",
-                    function () {
-                        // read clipboard
-                        navigator.clipboard
-                            .readText()
-                            .then(function (clipboardText) {
-                                console.log(clipboardText);
-                                console.log(task.title);
-                                // find task with id from clipboard
-                                task.tasks.push(clipboardText);
-                                renderTasks();
-                            });
-                    }
+                    pasteIDAsSubtask.bind(null, task)
                 );
                 let reorderUpButton = createButton(
                     "↑",
                     "right-side-button",
-                    reorderTask.bind(null, parent, task.id, "up")
+                    reorderTask.bind(null, parent, task.id, "up", index)
                 );
                 let reorderDownButton = createButton(
                     "↓",
                     "right-side-button",
-                    reorderTask.bind(null, parent, task.id, "down")
+                    reorderTask.bind(null, parent, task.id, "down", index)
                 );
                 let toggleSubtasksButton = createButton(
                     task.collapsed ? "▶" : "▼",
@@ -305,10 +350,142 @@
                 taskElement.appendChild(markFailedButton);
                 taskElement.appendChild(deleteButton);
                 taskElement.appendChild(copyIDButton);
-                taskElement.appendChild(pasteeIDAsSubtaskButton);
+                taskElement.appendChild(pasteIDAsSubtaskButton);
                 taskElement.appendChild(toggleSubtasksButton);
                 taskElement.appendChild(reorderUpButton);
                 taskElement.appendChild(reorderDownButton);
+                // Add drag and drop functionality
+                taskElement.draggable = true;
+                taskElement.ondragstart = function (evt) {
+                    evt.stopPropagation();
+                    draggedTaskInfo = [task.id, parent.id, index];
+                    evt.dataTransfer.setData(
+                        "application/node type",
+                        draggedTaskInfo
+                    );
+                    evt.dataTransfer.effectAllowed = "move";
+                };
+                function calculateTaskInsertPosition(evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    const draggedTaskInfo = evt.dataTransfer
+                        .getData("application/node type")
+                        .split(",");
+                    const droppedTask = tasks.find(
+                        (task) => task.id === draggedTaskInfo[0]
+                    );
+                    const droppedTaskParent = tasks.find(
+                        (task) => task.id === draggedTaskInfo[1]
+                    );
+                    // if no parent loop - move task to new parent
+                    if (!droppedTask.checkParentLoop(task.id)) {
+                        let index = draggedTaskInfo[2];
+                        let insertIndex = 0;
+                        // if dropped to the task with subtasks - calculate insertIndex according to drop position
+                        if (task.tasks.length > 0) {
+                            let subtasksElements =
+                                taskElement.querySelectorAll(".task");
+                            // calculate space between top of subtask and bottom of previous subtask
+                            let spaceBetweenSubtasks = 1000000;
+                            if (subtasksElements.length > 1) {
+                                spaceBetweenSubtasks =
+                                    subtasksElements[1].offsetTop -
+                                    subtasksElements[0].offsetTop -
+                                    subtasksElements[0].offsetHeight;
+                            }
+                            for (let i = 0; i < subtasksElements.length; i++) {
+                                // if drop position is in range from (top of subtask + spaceBetweenSubtasks/2) to (middle of subtask) - insert before subtask
+                                if (
+                                    evt.clientY >=
+                                        subtasksElements[i].offsetTop -
+                                            spaceBetweenSubtasks &&
+                                    evt.clientY <=
+                                        subtasksElements[i].offsetTop +
+                                            subtasksElements[i].offsetHeight / 2
+                                ) {
+                                    insertIndex = i;
+                                    break;
+                                }
+                                // if drop position is in range from (middle of subtask) to (bottom of subtask - spaceBetweenSubtasks/2) - insert after subtask
+                                if (
+                                    evt.clientY >=
+                                        subtasksElements[i].offsetTop +
+                                            subtasksElements[i].offsetHeight /
+                                                2 &&
+                                    evt.clientY <=
+                                        subtasksElements[i].offsetTop +
+                                            subtasksElements[i].offsetHeight +
+                                            spaceBetweenSubtasks
+                                ) {
+                                    insertIndex = i + 1;
+                                    break;
+                                }
+                            }
+                        }
+                        // fix insertIndex if dropped to the same parent before previous position
+                        if (droppedTaskParent === task && index < insertIndex) {
+                            insertIndex--;
+                        }
+                        return insertIndex;
+                    } else {
+                        return null;
+                    }
+                }
+                taskElement.ondrop = function (evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    const draggedTaskInfo = evt.dataTransfer
+                        .getData("application/node type")
+                        .split(",");
+                    const droppedTask = tasks.find(
+                        (task) => task.id === draggedTaskInfo[0]
+                    );
+                    const droppedTaskParent = tasks.find(
+                        (task) => task.id === draggedTaskInfo[1]
+                    );
+                    let index = draggedTaskInfo[2];
+                    let insertIndex = calculateTaskInsertPosition(evt);
+                    if (insertIndex !== null) {
+                        // move task
+                        droppedTaskParent.tasks.splice(index, 1);
+                        task.tasks.splice(insertIndex, 0, droppedTask.id);
+                    } else {
+                        // alert("Can't drop task on itself or on its subtasks");
+                    }
+                    renderTasks();
+                };
+                taskElement.ondragover = function (evt) {
+                    evt.preventDefault();
+                    evt.dataTransfer.dropEffect = "move";
+                    const droppedTask = tasks.find(
+                        (task) => task.id === draggedTaskInfo[0]
+                    );
+                    if (!droppedTask.checkParentLoop(task.id)) {
+                        evt.target.classList.add("task-x-drag-over-correct");
+                    } else {
+                        evt.target.classList.add("task-x-drag-over-wrong");
+                    }
+                };
+                function removeWithAnimation(element, className) {
+                    element.classList.add("animate-out");
+                    setTimeout(function () {
+                        element.classList.remove(className);
+                        element.classList.remove("animate-out");
+                    }, 100); // same duration as in css transition
+                }
+
+                taskElement.ondragleave = function (evt) {
+                    evt.preventDefault();
+                    removeWithAnimation(evt.target, "task-x-drag-over-correct");
+                    removeWithAnimation(evt.target, "task-x-drag-over-wrong");
+                };
+
+                taskElement.ondragend = function (evt) {
+                    removeWithAnimation(evt.target, "task-x-drag-over-correct");
+                    removeWithAnimation(evt.target, "task-x-drag-over-wrong");
+                };
+
+                // Append taskElement to tasksElement
                 tasksElement.appendChild(taskElement);
                 // render subtasks
                 if (!task.collapsed) {
@@ -318,7 +495,8 @@
                             tasks.find(
                                 (childTask) => childTask.id === task.tasks[i]
                             ),
-                            task
+                            task,
+                            i
                         );
                     }
                 }
