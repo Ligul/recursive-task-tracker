@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta name="version" content="0.1.0" />
         <title>Recursive Task Tracker</title>
         <meta name="viewport" content="width=device-width" />
         <style>
@@ -183,6 +184,11 @@
                     return value;
                 }
             }
+            // get version from meta tag
+            let version = document
+                .querySelector('meta[name="version"]')
+                .getAttribute("content");
+            let majorVersion = parseInt(version.split(".")[0]);
 
             let actionsSiceBackup = 0;
             // array of all tasks
@@ -581,12 +587,10 @@
              */
             function saveTasks() {
                 removeUnconnectedTasks();
+                prefix = "recursive-task-tracker_v" + majorVersion + "_";
+                localStorage.setItem(prefix + "tasks", JSON.stringify(tasks));
                 localStorage.setItem(
-                    "recursive-task-tracker_tasks",
-                    JSON.stringify(tasks)
-                );
-                localStorage.setItem(
-                    "recursive-task-tracker_actionsSiceBackup",
+                    prefix + "actionsSiceBackup",
                     actionsSiceBackup
                 );
             }
@@ -618,6 +622,13 @@
             }
             function exportTasks() {
                 let exportName = prompt("Enter export name:");
+                if (exportName === null || exportName === "") {
+                    exportName =
+                        "Tasks_v" +
+                        majorVersion +
+                        "_" +
+                        new Date().toLocaleString();
+                }
                 var dataStr =
                     "data:text/json;charset=utf-8," +
                     encodeURIComponent(JSON.stringify(tasks));
@@ -639,7 +650,11 @@
                     // delete every item in local storage starting with "recursive-task-tracker_"
                     for (let i = 0; i < localStorage.length; i++) {
                         let key = localStorage.key(i);
-                        if (key.startsWith("recursive-task-tracker_")) {
+                        if (
+                            key.startsWith(
+                                "recursive-task-tracker_v" + majorVersion + "_"
+                            )
+                        ) {
                             localStorage.removeItem(key);
                         }
                     }
