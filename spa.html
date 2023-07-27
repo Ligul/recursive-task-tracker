@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta name="version" content="0.1.0" />
+        <meta name="version" content="0.1.1" />
         <title>Recursive Task Tracker</title>
         <meta name="viewport" content="width=device-width" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+        />
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -76,11 +80,29 @@
             }
 
             footer {
+                background-color: #f5f5f5;
+                box-shadow: 0px 0px 5px #aaa;
                 position: fixed;
                 bottom: 0;
                 left: 0;
-                padding: 5px;
+                padding: 7px;
                 width: 100%;
+            }
+            .button-primary {
+                background-color: #f5f5f5;
+                border-radius: 5px;
+                box-shadow: 1.5px 1.5px 4px #aaa;
+                border: none;
+                padding: 5px;
+                font-size: 15px;
+                cursor: pointer;
+                transition: background-color 0.1s ease-in-out;
+                transition: shadow 0.1s ease-in-out;
+            }
+
+            .button-primary:hover {
+                background-color: #ededed;
+                box-shadow: 0.5px 0.5px 2px #b1b1b1;
             }
         </style>
     </head>
@@ -89,30 +111,57 @@
 
         <div id="tasks"></div>
 
-        <button id="add-task" onclick="addTask.bind(null, tasks[0])()">
+        <button
+            id="add-task"
+            class="button-primary"
+            onclick="addTask.bind(null, tasks[0])()"
+        >
             Add Task
         </button>
         <button
             id="paste-id-as-subtask"
+            class="button-primary"
             onclick="pasteIDAsSubtask.bind(null, tasks[0])()"
         >
             Paste ID
         </button>
 
+        <!-- add free space -->
+        <div style="height: 25px"></div>
+
         <footer>
-            <button id="export" onclick="exportTasks()">Export</button>
-            <button id="import" onclick="importTasks()">Import</button>
-            <button id="clear" onclick="clearLocalStorage()">
+            <button id="export" class="button-primary" onclick="exportTasks()">
+                Export
+            </button>
+            <button id="import" class="button-primary" onclick="importTasks()">
+                Import
+            </button>
+            <button
+                id="clear"
+                class="button-primary"
+                onclick="clearLocalStorage()"
+            >
                 !!!Clear Local Storage!!!
             </button>
-            <a id="actionsSiceBackup" style="color: green; margin-left: 5px"
+            <a
+                id="actionsSiceBackup"
+                style="color: green; margin-left: 5px; font-weight: bold"
                 >Actions since last backup: 0</a
             >
             <a
                 href="https://github.com/Ligul/recursive-task-tracker"
                 target="_blank"
-                style="position: absolute; right: 0; margin-right: 20px"
-                >Project Repository</a
+                style="
+                    position: absolute;
+                    right: 0;
+                    bottom: 25%;
+                    margin-right: 20px;
+                    text-decoration: none;
+                "
+                id="projectRepository"
+            >
+                <i class="fa fa-github"></i>
+                Project Repository</a
             >
         </footer>
 
@@ -189,6 +238,10 @@
                 .querySelector('meta[name="version"]')
                 .getAttribute("content");
             let majorVersion = parseInt(version.split(".")[0]);
+
+            // display version in footer
+            document.getElementById("projectRepository").innerHTML +=
+                " (v" + version + ")";
 
             let actionsSiceBackup = 0;
             // array of all tasks
@@ -560,9 +613,8 @@
              * Load tasks from local storage id it exists or create new tasks array
              */
             function loadTasks() {
-                let savedTasks = localStorage.getItem(
-                    "recursive-task-tracker_tasks"
-                );
+                prefix = "recursive-task-tracker_v" + majorVersion + "_";
+                let savedTasks = localStorage.getItem(prefix + "tasks");
                 if (savedTasks !== null && savedTasks !== undefined) {
                     savedTasks = JSON.parse(savedTasks, Task.reviver);
                     if (savedTasks.length > 0) {
@@ -570,7 +622,7 @@
                     }
                 }
                 let savedActionsSiceBackup = localStorage.getItem(
-                    "recursive-task-tracker_actionsSiceBackup"
+                    prefix + "actionsSiceBackup"
                 );
                 if (
                     savedActionsSiceBackup === null ||
