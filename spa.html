@@ -79,6 +79,7 @@
                 bottom: 0;
                 left: 0;
                 padding: 5px;
+                width: 100%;
             }
         </style>
     </head>
@@ -103,9 +104,13 @@
             <button id="clear" onclick="clearLocalStorage()">
                 !!!Clear Local Storage!!!
             </button>
+            <a id="actionsSiceBackup" style="color: green; margin-left: 5px"
+                >Actions since last backup: 0</a
+            >
             <a
                 href="https://github.com/Ligul/recursive-task-tracker"
                 target="_blank"
+                style="position: absolute; right: 0; margin-right: 20px"
                 >Project Repository</a
             >
         </footer>
@@ -141,6 +146,7 @@
                     } else {
                         this.completedDate = null;
                     }
+                    countActionSinceBackup();
                 }
 
                 checkParentLoop(parentTaskId, alreadyCheckedTasks = []) {
@@ -178,6 +184,7 @@
                 }
             }
 
+            let actionsSiceBackup = 0;
             // array of all tasks
             let tasks = [];
             // create tasks[0] witch is the root task - parent of all tasks. It is not displayed.
@@ -202,6 +209,7 @@
                         i
                     );
                 }
+                updateActionsSinceBackupElenebt();
                 saveTasks();
             }
             function addTask(parentTask, userPrompt) {
@@ -210,6 +218,7 @@
                     newTask = new Task(newTaskTitle);
                     tasks.push(newTask);
                     parentTask.tasks.push(newTask.id);
+                    countActionSinceBackup();
                     renderTasks();
                 }
             }
@@ -218,6 +227,7 @@
                     return;
                 }
                 parent.tasks.splice(index, 1);
+                countActionSinceBackup();
                 renderTasks();
             }
             function createButton(text, className, onclick) {
@@ -249,6 +259,7 @@
                     if (taskToPaste !== undefined) {
                         // add task to parent
                         parentTask.tasks.push(taskToPaste.id);
+                        countActionSinceBackup();
                         renderTasks();
                     }
                 });
@@ -279,6 +290,7 @@
                         let newTitle = prompt("Enter new title:", task.title);
                         if (newTitle !== null) {
                             task.title = newTitle;
+                            countActionSinceBackup();
                             renderTasks();
                         }
                     }
@@ -449,6 +461,7 @@
                         // move task
                         droppedTaskParent.tasks.splice(index, 1);
                         task.tasks.splice(insertIndex, 0, droppedTask.id);
+                        countActionSinceBackup();
                     } else {
                         // alert("Can't drop task on itself or on its subtasks");
                     }
@@ -515,6 +528,22 @@
                 addConnectedTasks(tasks[0]);
                 tasks = tasks.filter((task) => connectedTasks.includes(task));
             }
+            function countActionSinceBackup() {
+                actionsSiceBackup++;
+            }
+            function updateActionsSinceBackupElenebt() {
+                let element = document.getElementById("actionsSiceBackup");
+                element.textContent =
+                    "Actions since last backup: " + actionsSiceBackup;
+                color = "green";
+                if (actionsSiceBackup >= 15) {
+                    color = "orange";
+                }
+                if (actionsSiceBackup >= 30) {
+                    color = "red";
+                }
+                element.style.color = color;
+            }
             /**
              * Initialize tasks array with root task
              */
@@ -525,12 +554,26 @@
              * Load tasks from local storage id it exists or create new tasks array
              */
             function loadTasks() {
-                let savedTasks = localStorage.getItem("tasks");
+                let savedTasks = localStorage.getItem(
+                    "recursive-task-tracker_tasks"
+                );
                 if (savedTasks !== null && savedTasks !== undefined) {
                     savedTasks = JSON.parse(savedTasks, Task.reviver);
                     if (savedTasks.length > 0) {
                         tasks = savedTasks;
                     }
+                }
+                let savedActionsSiceBackup = localStorage.getItem(
+                    "recursive-task-tracker_actionsSiceBackup"
+                );
+                if (
+                    savedActionsSiceBackup === null ||
+                    savedActionsSiceBackup === undefined ||
+                    isNaN(parseInt(savedActionsSiceBackup))
+                ) {
+                    actionsSiceBackup = 0;
+                } else {
+                    actionsSiceBackup = parseInt(savedActionsSiceBackup);
                 }
             }
             /**
@@ -538,7 +581,14 @@
              */
             function saveTasks() {
                 removeUnconnectedTasks();
-                localStorage.setItem("tasks", JSON.stringify(tasks));
+                localStorage.setItem(
+                    "recursive-task-tracker_tasks",
+                    JSON.stringify(tasks)
+                );
+                localStorage.setItem(
+                    "recursive-task-tracker_actionsSiceBackup",
+                    actionsSiceBackup
+                );
             }
 
             function importTasks() {
@@ -559,6 +609,8 @@
                         );
                         // replace tasks with imported tasks
                         tasks = importedTasks;
+                        // reset actionsSiceBackup
+                        actionsSiceBackup = 0;
                         // render tasks
                         renderTasks();
                     });
@@ -584,9 +636,15 @@
                     "Are you sure you want to clear local storage?"
                 );
                 if (confirmation) {
-                    localStorage.clear();
-                    // TODO: maybe it is better to reload the page?
+                    // delete every item in local storage starting with "recursive-task-tracker_"
+                    for (let i = 0; i < localStorage.length; i++) {
+                        let key = localStorage.key(i);
+                        if (key.startsWith("recursive-task-tracker_")) {
+                            localStorage.removeItem(key);
+                        }
+                    }
                     initTasks();
+                    actionsSiceBackup = 0;
                     renderTasks();
                     console.log("Local storage cleared");
                 }
