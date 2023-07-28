@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta name="version" content="0.1.1" />
+        <meta name="version" content="0.1.2" />
         <title>Recursive Task Tracker</title>
         <meta name="viewport" content="width=device-width" />
         <link
@@ -104,6 +104,33 @@
                 background-color: #ededed;
                 box-shadow: 0.5px 0.5px 2px #b1b1b1;
             }
+
+            .shake {
+                animation: attention-shaking 0.3s infinite;
+            }
+
+            @keyframes attention-shaking {
+                0% {
+                    transform: translate(0, 0);
+                    color: black;
+                }
+                25% {
+                    transform: translate(2px, 2px);
+                    color: red;
+                }
+                50% {
+                    transform: translate(0, 0);
+                    color: blue;
+                }
+                75% {
+                    transform: translate(-2px, 2px);
+                    color: red;
+                }
+                100% {
+                    transform: translate(0, 0);
+                    color: black;
+                }
+            }
         </style>
     </head>
     <body>
@@ -145,7 +172,12 @@
             </button>
             <a
                 id="actionsSiceBackup"
-                style="color: green; margin-left: 5px; font-weight: bold"
+                style="
+                    color: green;
+                    margin-left: 5px;
+                    font-weight: bold;
+                    display: inline-block;
+                "
                 >Actions since last backup: 0</a
             >
             <a
@@ -305,6 +337,7 @@
                     let temp = parentTask.tasks[index + direction];
                     parentTask.tasks[index + direction] = taskId;
                     parentTask.tasks[index] = temp;
+                    countActionSinceBackup();
                     renderTasks();
                 }
             }
@@ -594,14 +627,17 @@
                 let element = document.getElementById("actionsSiceBackup");
                 element.textContent =
                     "Actions since last backup: " + actionsSiceBackup;
-                color = "green";
+                element.style.color = "green";
                 if (actionsSiceBackup >= 15) {
-                    color = "orange";
+                    element.style.color = "orange";
                 }
                 if (actionsSiceBackup >= 30) {
-                    color = "red";
+                    element.style.color = "red";
                 }
-                element.style.color = color;
+                if (actionsSiceBackup >= 100) {
+                    // add shaking animation
+                    element.classList.add("shake");
+                }
             }
             /**
              * Initialize tasks array with root task
